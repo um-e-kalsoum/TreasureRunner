@@ -234,8 +234,8 @@ lib.player_reset_to_start.restype = ctypes.c_int
 # ============================================================
 # Memory Management
 # ============================================================
-# rendering functions allocate memory with malloc and must be freed 
-# using the c helpers NOT through python logic so its imporant to use 
+# rendering functions allocate memory with malloc and must be freed
+# using the c helpers NOT through python logic so its imporant to use
 # these to avoid leaks
 
 # void game_engine_free_string(void *ptr);

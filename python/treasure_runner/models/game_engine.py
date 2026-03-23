@@ -7,9 +7,9 @@ from treasure_runner.models.player import Player
 
 class GameEngine:
 # python class that wraps the raw c engine pointer
-#does not store the actual game data in python but it 
+#does not store the actual game data in python but it
 #stores a pointer to the c engine and calls c functions when needed
-    
+
 
     #creates game engine from config file
     def __init__(self, config_path: str):
@@ -91,7 +91,7 @@ class GameEngine:
 
         return int(width.value), int(height.value)
 
-    #returns all room ids as a python list of ints 
+    #returns all room ids as a python list of ints
     def get_room_ids(self) -> list[int]:
         ids_ptr = ctypes.POINTER(ctypes.c_int)()
         count = ctypes.c_int()
