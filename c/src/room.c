@@ -1,6 +1,8 @@
 #include "room.h"
 #include <stdlib.h>
 #include <string.h>
+#include "extras.h"
+
 
 
 

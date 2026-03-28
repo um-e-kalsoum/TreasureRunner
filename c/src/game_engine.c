@@ -6,6 +6,7 @@
 #include "room.h"
 #include "player.h"
 #include "types.h"
+#include "extras.h"
 
 
 

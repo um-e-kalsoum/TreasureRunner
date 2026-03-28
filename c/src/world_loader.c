@@ -7,6 +7,8 @@
 #include "room.h"
 #include "datagen.h"
 #include "types.h"
+#include "extras.h"
+
 
 //compare 2 generic pointers (so graph can work with any data type) to rooms
 static int compare_rooms_by_id(const void *a, const void *b) {

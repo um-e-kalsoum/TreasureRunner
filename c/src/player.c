@@ -1,5 +1,7 @@
 #include "player.h"
 #include <stdlib.h>
+#include "extras.h"
+
 
 
 Status player_create(int initial_room_id, int initial_x, int initial_y, Player **player_out) {
