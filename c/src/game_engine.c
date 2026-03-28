@@ -8,43 +8,6 @@
 #include "types.h"
 
 
-Status game_engine_get_total_treasure_count(const GameEngine *eng,
-                                            int *count_out);
-
-
-Status game_engine_use_portal(GameEngine *eng);
-
-
-Status game_engine_get_charset(const GameEngine *eng, Charset *charset_out);
-
-Status game_engine_reset_current_room(GameEngine *eng);
-
-
-typedef struct {
-    bool valid;
-
-    int prev_room_id;
-    int prev_x;
-    int prev_y;
-
-    bool collected_treasure;
-    int treasure_room_id;
-    int treasure_id;
-    int treasure_prev_x;
-    int treasure_prev_y;
-
-    bool moved_pushable;
-    int pushable_room_id;
-    int pushable_id;
-    int pushable_prev_x;
-    int pushable_prev_y;
-} LastMoveState;
-
-typedef struct {
-    GameEngine base;
-    LastMoveState undo;
-} GameEngineEx;
-
 
 
 
@@ -637,7 +600,7 @@ Status game_engine_get_total_treasure_count(const GameEngine *eng,
     int room_total = 0;
     int i = 0;
     int total = 0;
-    GraphStatus gstatus;
+    GraphStatus gstatus = GRAPH_STATUS_OK;
 
     if (eng == NULL) {
         return INVALID_ARGUMENT;
@@ -679,7 +642,7 @@ Status game_engine_use_portal(GameEngine *eng) {
     int room_id = -1;
     int out_id = -1;
     Room *room = NULL;
-    RoomTileType tt;
+    RoomTileType tt = ROOM_TILE_INVALID;
 
     if (eng == NULL) {
         return INVALID_ARGUMENT;
@@ -729,7 +692,7 @@ Status game_engine_reset_current_room(GameEngine *eng) {
     Room *room = NULL;
     int start_x = 0;
     int start_y = 0;
-    Status st;
+    Status st = OK;
 
     if (eng == NULL) {
         return INVALID_ARGUMENT;

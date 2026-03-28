@@ -281,4 +281,3 @@ lib.game_engine_free_string.restype = None
 # void destroy_treasure(Treasure *t);
 lib.destroy_treasure.argtypes = [ctypes.POINTER(Treasure)]
 lib.destroy_treasure.restype = None
-

@@ -1,8 +1,6 @@
 #include "player.h"
 #include <stdlib.h>
 
-Status player_remove_collected_in_room(Player *p, int room_id);
-Status player_uncollect_treasure(Player *p, int treasure_id);
 
 Status player_create(int initial_room_id, int initial_x, int initial_y, Player **player_out) {
     if (player_out == NULL) {

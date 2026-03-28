@@ -33,16 +33,16 @@ class GameUI:
 
     @classmethod
     def _init_colors(cls) -> None:
-        curses.init_pair(2, curses.COLOR_WHITE, curses.COLOR_BLACK)    
-        curses.init_pair(4, curses.COLOR_YELLOW, curses.COLOR_BLACK)   
+        curses.init_pair(2, curses.COLOR_WHITE, curses.COLOR_BLACK)
+        curses.init_pair(4, curses.COLOR_YELLOW, curses.COLOR_BLACK)
 
-        curses.init_pair(5, curses.COLOR_GREEN, curses.COLOR_BLACK)    
-        curses.init_pair(6, curses.COLOR_YELLOW, curses.COLOR_BLACK)   
-        curses.init_pair(7, curses.COLOR_MAGENTA, curses.COLOR_BLACK)  
-        curses.init_pair(8, curses.COLOR_RED, curses.COLOR_BLACK)      
-        curses.init_pair(9, curses.COLOR_WHITE, curses.COLOR_BLACK)    
-        curses.init_pair(10, curses.COLOR_BLUE, curses.COLOR_BLACK)    
-        
+        curses.init_pair(5, curses.COLOR_GREEN, curses.COLOR_BLACK)
+        curses.init_pair(6, curses.COLOR_YELLOW, curses.COLOR_BLACK)
+        curses.init_pair(7, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
+        curses.init_pair(8, curses.COLOR_RED, curses.COLOR_BLACK)
+        curses.init_pair(9, curses.COLOR_WHITE, curses.COLOR_BLACK)
+        curses.init_pair(10, curses.COLOR_BLUE, curses.COLOR_BLACK)
+
     def run(self) -> None:
         self.init_screen()
         self.show_startup_screen()
@@ -196,7 +196,7 @@ class GameUI:
 
         if progress_x < max_x:
             self._stdscr.addstr(0, progress_x, right_text[:max_x - progress_x - 1], curses.color_pair(4))
-        
+
     def _draw_room_info(self) -> None:
         room_id = self._engine.player.get_room()
         title = f"Room: {room_id}"
@@ -229,7 +229,7 @@ class GameUI:
                     color = curses.color_pair(10)
 
                 self._stdscr.addch(start_y + i, start_x + j, ch, color)
-                    
+
     def _draw_legend(self) -> None:
         room_text = self._engine.render_current_room()
         lines = room_text.splitlines()
@@ -271,7 +271,7 @@ class GameUI:
         self._stdscr.addstr(controls_y, 2, controls_line1[:max_x - 3])
         self._stdscr.addstr(controls_y + 1, 2, controls_line2[:max_x - 3])
         self._stdscr.addstr(controls_y + 2, 2, controls_line3[:max_x - 3])
-        
+
     def _draw_status_bar(self) -> None:
         max_y, max_x = self._stdscr.getmaxyx()
 

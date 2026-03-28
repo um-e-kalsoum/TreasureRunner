@@ -3,7 +3,6 @@
 #include <string.h>
 
 
-Status room_reset_current_state(Room *r);
 
 
 // ************** helpers start **************
