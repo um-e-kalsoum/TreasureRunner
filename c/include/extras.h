@@ -1,5 +1,5 @@
-#ifndef EXTRAS
-#define EXTRAS
+#ifndef EXTRAS_H
+#define EXTRAS_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -55,4 +55,4 @@ typedef struct {
 } GameEngineEx;
 
 
-#endif /* EXTRAS */
+#endif /* EXTRAS_H  */
