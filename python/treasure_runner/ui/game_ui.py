@@ -1,8 +1,9 @@
 import curses
+import time
 
 from treasure_runner.bindings import Direction
 from treasure_runner.models.exceptions import GameError, ImpassableError, NoPortalError, OutOfBoundsError, InvalidArgumentError
-import time
+
 
 class GameUI:
     def __init__(self, stdscr, engine, profile, profile_path):
@@ -57,52 +58,71 @@ class GameUI:
             running = self._handle_key(key)
 
     def _handle_key(self, key: int) -> bool:
+        should_continue = True
+
         if key == ord("q"):
             self.message("Quitting game...")
-            return False
+            should_continue = False
 
-        if key == ord("r"):
-            try:
-                self._engine.reset()
-                self._update_progress_text()
-                self.message("Game reset")
-            except GameError as e:
-                self.message(str(e))
-            return True
+        elif key == ord("r"):
+            should_continue = self._handle_reset()
 
-        if key == ord("i"):
-            try:
-                self._engine.reset_current_room()
-                self._update_progress_text()
-                self.message("Current room reset")
-            except GameError as e:
-                self.message(str(e))
-            return True
+        elif key == ord("i"):
+            should_continue = self._handle_reset_current_room()
 
-        if key == ord("u"):
-            try:
-                self._engine.undo_last_move()
-                self._update_progress_text()
-                self.message("Undid last move")
-            except InvalidArgumentError:
-                self.message("You already undid one move")
-            except GameError as e:
-                self.message(str(e))
-            return True
+        elif key == ord("u"):
+            should_continue = self._handle_undo()
 
+        elif key == ord(">"):
+            should_continue = self._handle_portal_use()
 
-        if key == ord(">"):
-            try:
-                self._engine.use_portal()
-                self._visited_rooms.add(self._engine.player.get_room())
-                self._update_progress_text()
-                self.message("You entered a portal")
-            except NoPortalError:
-                self.message("You are not standing on a portal")
-            except GameError as e:
-                self.message(str(e))
-            return True
+        else:
+            should_continue = self._handle_movement_key(key)
 
+        return should_continue
+
+    def _handle_reset(self) -> bool:
+        try:
+            self._engine.reset()
+            self._update_progress_text()
+            self.message("Game reset")
+        except GameError as error:
+            self.message(str(error))
+        return True
+
+    def _handle_reset_current_room(self) -> bool:
+        try:
+            self._engine.reset_current_room()
+            self._update_progress_text()
+            self.message("Current room reset")
+        except GameError as error:
+            self.message(str(error))
+        return True
+
+    def _handle_undo(self) -> bool:
+        try:
+            self._engine.undo_last_move()
+            self._update_progress_text()
+            self.message("Undid last move")
+        except InvalidArgumentError:
+            self.message("You already undid one move")
+        except GameError as error:
+            self.message(str(error))
+        return True
+
+    def _handle_portal_use(self) -> bool:
+        try:
+            self._engine.use_portal()
+            self._visited_rooms.add(self._engine.player.get_room())
+            self._update_progress_text()
+            self.message("You entered a portal")
+        except NoPortalError:
+            self.message("You are not standing on a portal")
+        except GameError as error:
+            self.message(str(error))
+        return True
+
+    def _handle_movement_key(self, key: int) -> bool:
         direction = self._read_direction(key)
 
         if direction is None:
@@ -117,14 +137,6 @@ class GameUI:
 
             after_collected = self._engine.player.get_collected_count()
             self._update_progress_text()
-
-            room_text = self._engine.render_current_room()
-            px, py = self._engine.player.get_position()
-            lines = room_text.splitlines()
-
-            current_tile = None
-            if 0 <= py < len(lines) and 0 <= px < len(lines[py]):
-                current_tile = lines[py][px]
 
             if after_collected > before_collected:
                 self.message("You picked up a treasure")
@@ -144,8 +156,8 @@ class GameUI:
             self.message("You cannot go that way")
         except NoPortalError:
             self.message("No portal here")
-        except GameError as e:
-            self.message(str(e))
+        except GameError as error:
+            self.message(str(error))
 
         return True
 
@@ -174,7 +186,7 @@ class GameUI:
         self._stdscr.refresh()
 
     def _draw_message_bar(self) -> None:
-        max_y, max_x = self._stdscr.getmaxyx()
+        _, max_x = self._stdscr.getmaxyx()
 
         message_x = 0
         progress_x = 45
@@ -189,8 +201,7 @@ class GameUI:
             progress_x = max_x - 1
 
         left_max_len = progress_x - message_x - 2
-        if left_max_len < 0:
-            left_max_len = 0
+        left_max_len = max(left_max_len, 0)
 
         self._stdscr.addstr(0, message_x, left_text[:left_max_len], curses.color_pair(4))
 
@@ -205,30 +216,27 @@ class GameUI:
     def _draw_room(self) -> None:
         room_text = self._engine.render_current_room()
         lines = room_text.splitlines()
+        start_row = 4
+        start_col = 2
 
-        start_y = 4
-        start_x = 2
+        for row_index, line in enumerate(lines):
+            for col_index, tile_char in enumerate(line):
+                color = self._color_for_tile(tile_char)
+                self._stdscr.addch(start_row + row_index, start_col + col_index, tile_char, color)
 
-        cs = self._charset
+    def _color_for_tile(self, tile_char: str) -> int:
+        charset = self._charset
 
-        for i, line in enumerate(lines):
-            for j, ch in enumerate(line):
-                color = curses.color_pair(2)
+        color_map = {
+            charset["player"]: curses.color_pair(5),
+            charset["treasure"]: curses.color_pair(6),
+            charset["portal"]: curses.color_pair(7),
+            charset["pushable"]: curses.color_pair(8),
+            charset["floor"]: curses.color_pair(9),
+            charset["wall"]: curses.color_pair(10),
+        }
 
-                if ch == cs["player"]:
-                    color = curses.color_pair(5)
-                elif ch == cs["treasure"]:
-                    color = curses.color_pair(6)
-                elif ch == cs["portal"]:
-                    color = curses.color_pair(7)
-                elif ch == cs["pushable"]:
-                    color = curses.color_pair(8)
-                elif ch == cs["floor"]:
-                    color = curses.color_pair(9)
-                elif ch == cs["wall"]:
-                    color = curses.color_pair(10)
-
-                self._stdscr.addch(start_y + i, start_x + j, ch, color)
+        return color_map.get(tile_char, curses.color_pair(2))
 
     def _draw_legend(self) -> None:
         room_text = self._engine.render_current_room()
@@ -241,16 +249,16 @@ class GameUI:
 
         legend_x = longest + 8
         legend_y = 4
-        cs = self._charset
+        charset = self._charset
 
         self._stdscr.addstr(legend_y, legend_x, "Game Elements", curses.A_BOLD)
 
-        self._stdscr.addstr(legend_y + 2, legend_x, f"{cs['player']} - player", curses.color_pair(5))
-        self._stdscr.addstr(legend_y + 3, legend_x, f"{cs['treasure']} - treasure", curses.color_pair(6))
-        self._stdscr.addstr(legend_y + 4, legend_x, f"{cs['portal']} - portal", curses.color_pair(7))
-        self._stdscr.addstr(legend_y + 5, legend_x, f"{cs['pushable']} - pushable", curses.color_pair(8))
-        self._stdscr.addstr(legend_y + 6, legend_x, f"{cs['floor']} - floor", curses.color_pair(9))
-        self._stdscr.addstr(legend_y + 7, legend_x, f"{cs['wall']} - wall", curses.color_pair(10))
+        self._stdscr.addstr(legend_y + 2, legend_x, f"{charset['player']} - player", curses.color_pair(5))
+        self._stdscr.addstr(legend_y + 3, legend_x, f"{charset['treasure']} - treasure", curses.color_pair(6))
+        self._stdscr.addstr(legend_y + 4, legend_x, f"{charset['portal']} - portal", curses.color_pair(7))
+        self._stdscr.addstr(legend_y + 5, legend_x, f"{charset['pushable']} - pushable", curses.color_pair(8))
+        self._stdscr.addstr(legend_y + 6, legend_x, f"{charset['floor']} - floor", curses.color_pair(9))
+        self._stdscr.addstr(legend_y + 7, legend_x, f"{charset['wall']} - wall", curses.color_pair(10))
 
 
     def _draw_controls(self) -> None:
@@ -360,13 +368,11 @@ class GameUI:
         max_y, max_x = self._stdscr.getmaxyx()
         start_y = (max_y - len(lines)) // 2
 
-        if start_y < 0:
-            start_y = 0
+        start_y = max(start_y, 0)
 
         for i, line in enumerate(lines):
             start_x = (max_x - len(line)) // 2
-            if start_x < 0:
-                start_x = 0
+            start_x = max(start_x, 0)
 
             if start_y + i < max_y:
                 self._stdscr.addstr(start_y + i, start_x, line[:max_x - 1], attr)
@@ -387,16 +393,16 @@ class GameUI:
             msg3 = "The game will continue automatically"
 
             y = max_y // 2
-            x1 = max(0, (max_x - len(msg1)) // 2)
-            x2 = max(0, (max_x - len(msg2)) // 2)
-            x3 = max(0, (max_x - len(msg3)) // 2)
+            msg1_x = max(0, (max_x - len(msg1)) // 2)
+            msg2_x = max(0, (max_x - len(msg2)) // 2)
+            msg3_x = max(0, (max_x - len(msg3)) // 2)
 
             if y - 1 >= 0:
-                self._stdscr.addstr(y - 1, x1, msg1[:max_x - 1], curses.A_BOLD)
+                self._stdscr.addstr(y - 1, msg1_x, msg1[:max_x - 1], curses.A_BOLD)
             if y >= 0:
-                self._stdscr.addstr(y, x2, msg2[:max_x - 1])
+                self._stdscr.addstr(y, msg2_x, msg2[:max_x - 1])
             if y + 1 < max_y:
-                self._stdscr.addstr(y + 1, x3, msg3[:max_x - 1])
+                self._stdscr.addstr(y + 1, msg3_x, msg3[:max_x - 1])
 
             self._stdscr.refresh()
             curses.napms(200)
