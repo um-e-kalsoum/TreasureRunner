@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include "types.h"
 #include <stdio.h>
-#include "game_engine"
+#include "game_engine.h"
 #include "player.h"
 #include "world_loader.h"
 #include "room.h"
