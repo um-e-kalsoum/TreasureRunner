@@ -735,7 +735,7 @@ Status game_engine_undo_last_move(GameEngine *eng) {
     GameEngineEx *eng_ex = (GameEngineEx *)eng;
     Room *room = NULL;
     int i = 0;
-    Status st;
+    Status st = OK;
 
     if (eng == NULL) {
         return INVALID_ARGUMENT;
