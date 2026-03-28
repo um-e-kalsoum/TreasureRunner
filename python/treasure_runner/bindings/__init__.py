@@ -1,1 +1,1 @@
-from .bindings import lib, Status, Direction, Treasure, GameEngineStatus
+from .bindings import lib, Status, Direction, Treasure, GameEngineStatus, Charset

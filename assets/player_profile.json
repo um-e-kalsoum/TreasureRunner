@@ -1,7 +1,9 @@
 {
     "player_name": "kalsoum",
-    "games_played": 19,
-    "max_treasure_collected": 0,
-    "most_rooms_world_completed": 2,
-    "timestamp_last_played": "2026-03-25T02:03:07Z"
+    "games_played": 91,
+    "total_wins": 5,
+    "max_treasure_collected": 10,
+    "most_rooms_world_completed": 6,
+    "best_completion_time_seconds": 3,
+    "timestamp_last_played": "2026-03-27T08:26:26Z"
 }

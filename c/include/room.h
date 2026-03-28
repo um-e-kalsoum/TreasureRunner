@@ -492,6 +492,4 @@ Status room_try_push(Room *r,
                      Direction dir);
 
 
-
-
 #endif /* ROOM_H */

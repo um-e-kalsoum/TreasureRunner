@@ -3,6 +3,9 @@
 #include <string.h>
 
 
+Status room_reset_current_state(Room *r);
+
+
 // ************** helpers start **************
 
 static char *copy_c_string(const char *s) {
@@ -544,6 +547,29 @@ Status room_try_push(Room *r,
 
     r->pushables[pushable_idx].x = to_x;
     r->pushables[pushable_idx].y = to_y;
+
+    return OK;
+}
+
+//added for a3
+
+Status room_reset_current_state(Room *r) {
+    int i = 0;
+
+    if (r == NULL) {
+        return INVALID_ARGUMENT;
+    }
+
+    for (i = 0; i < r->pushable_count; i++) {
+        r->pushables[i].x = r->pushables[i].initial_x;
+        r->pushables[i].y = r->pushables[i].initial_y;
+    }
+
+    for (i = 0; i < r->treasure_count; i++) {
+        r->treasures[i].x = r->treasures[i].initial_x;
+        r->treasures[i].y = r->treasures[i].initial_y;
+        r->treasures[i].collected = false;
+    }
 
     return OK;
 }

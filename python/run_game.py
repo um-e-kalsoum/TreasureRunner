@@ -31,8 +31,10 @@ def load_or_create_profile(profile_path: Path) -> dict:
     profile = {
         "player_name": player_name,
         "games_played": 0,
+        "total_wins": 0,
         "max_treasure_collected": 0,
         "most_rooms_world_completed": 0,
+        "best_completion_time_seconds": None,
         "timestamp_last_played": "Never"
     }
 
@@ -52,7 +54,7 @@ def save_profile(profile_path: Path, profile: dict) -> None:
         json.dump(profile, file, indent=4)
 
 
-def update_profile(profile: dict, engine: GameEngine) -> dict:
+def update_profile(profile: dict, engine: GameEngine, ui: GameUI) -> dict:
 
     profile["games_played"] = profile.get("games_played", 0) + 1
 
@@ -62,12 +64,21 @@ def update_profile(profile: dict, engine: GameEngine) -> dict:
     if collected > profile.get("max_treasure_collected", 0):
         profile["max_treasure_collected"] = collected
 
-    current_room = engine.player.get_room()
+    rooms_visited = len(ui._visited_rooms)
 
-    #updates progress if this run is the farthest
-    if current_room > profile.get("most_rooms_world_completed", 0):
-        profile["most_rooms_world_completed"] = current_room
+    if rooms_visited > profile.get("most_rooms_world_completed", 0):
+        profile["most_rooms_world_completed"] = rooms_visited
 
+    if ui._won:
+        profile["total_wins"] = profile.get("total_wins", 0) + 1
+
+        best_time = profile.get("best_completion_time_seconds")
+        current_time = ui._completion_time_seconds
+
+        if current_time is not None:
+            if best_time is None or current_time < best_time:
+                profile["best_completion_time_seconds"] = current_time
+                
     profile["timestamp_last_played"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     return profile
@@ -80,10 +91,13 @@ def main_curses(stdscr, config_path: str, profile: dict, profile_path: Path) -> 
     try:
         ui.run() #start game loop
     finally:
-        updated_profile = update_profile(profile, engine) #update profile with final game state
-        save_profile(profile_path, updated_profile) #save to json
-        engine.destroy()
+        updated_profile = update_profile(profile, engine, ui)
+        save_profile(profile_path, updated_profile)
 
+        ui._profile = updated_profile
+        ui.show_end_screen()
+
+        engine.destroy()
 
 def main():
     args = parse_args()

@@ -197,7 +197,4 @@ player_get_collected_treasures(const Player *p, int *count_out);
 
 
 
-
-
-
 #endif /* PLAYER_H */

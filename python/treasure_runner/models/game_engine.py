@@ -1,6 +1,6 @@
 import ctypes
 
-from treasure_runner.bindings import lib, Status, Direction
+from treasure_runner.bindings import lib, Status, Direction, Charset
 from treasure_runner.models.exceptions import status_to_exception
 from treasure_runner.models.player import Player
 
@@ -122,3 +122,48 @@ class GameEngine:
 
         if status != Status.OK:
             raise status_to_exception(Status(status), "game_engine_reset failed")
+
+
+    # added for A3
+
+    def get_total_treasure_count(self) -> int:
+        count = ctypes.c_int()
+        status = int(lib.game_engine_get_total_treasure_count(self._eng, ctypes.byref(count)))
+
+        if status != Status.OK:
+            raise status_to_exception(Status(status), "game_engine_get_total_treasure_count failed")
+
+        return int(count.value)
+
+    def use_portal(self) -> None:
+        status = int(lib.game_engine_use_portal(self._eng))
+        if status != Status.OK:
+            raise status_to_exception(Status(status), "game_engine_use_portal failed")
+
+    def get_charset(self):
+        charset = Charset()
+        status = int(lib.game_engine_get_charset(self._eng, ctypes.byref(charset)))
+
+        if status != Status.OK:
+            raise status_to_exception(Status(status), "game_engine_get_charset failed")
+
+        return {
+            "wall": charset.wall.decode("utf-8"),
+            "floor": charset.floor.decode("utf-8"),
+            "player": charset.player.decode("utf-8"),
+            "pushable": charset.pushable.decode("utf-8"),
+            "treasure": charset.treasure.decode("utf-8"),
+            "portal": charset.portal.decode("utf-8"),
+            "switch_off": charset.switch_off.decode("utf-8"),
+            "switch_on": charset.switch_on.decode("utf-8"),
+        }
+
+    def reset_current_room(self) -> None:
+        status = int(lib.game_engine_reset_current_room(self._eng))
+        if status != Status.OK:
+            raise status_to_exception(Status(status), "game_engine_reset_current_room failed")
+
+    def undo_last_move(self) -> None:
+        status = int(lib.game_engine_undo_last_move(self._eng))
+        if status != Status.OK:
+            raise status_to_exception(Status(status), "game_engine_undo_last_move failed")

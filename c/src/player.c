@@ -1,6 +1,9 @@
 #include "player.h"
 #include <stdlib.h>
 
+Status player_remove_collected_in_room(Player *p, int room_id);
+Status player_uncollect_treasure(Player *p, int treasure_id);
+
 Status player_create(int initial_room_id, int initial_x, int initial_y, Player **player_out) {
     if (player_out == NULL) {
         return INVALID_ARGUMENT;
@@ -152,4 +155,71 @@ const Treasure * const *player_get_collected_treasures(const Player *p, int *cou
     *count_out = p->collected_count;
 
     return (const Treasure * const *)p->collected_treasures;
+}
+
+//added for a3
+
+Status player_remove_collected_in_room(Player *p, int room_id) {
+    int i = 0;
+    int j = 0;
+
+    if (p == NULL) {
+        return NULL_POINTER;
+    }
+
+    while (i < p->collected_count) {
+        if (p->collected_treasures[i] != NULL &&
+            p->collected_treasures[i]->starting_room_id == room_id) {
+
+            for (j = i; j < p->collected_count - 1; j++) {
+                p->collected_treasures[j] = p->collected_treasures[j + 1];
+            }
+
+            p->collected_count--;
+        } else {
+            i++;
+        }
+    }
+
+    if (p->collected_count == 0) {
+        free(p->collected_treasures);
+        p->collected_treasures = NULL;
+    }
+
+    return OK;
+}
+
+Status player_uncollect_treasure(Player *p, int treasure_id) {
+    int i = 0;
+    int j = 0;
+
+    if (p == NULL) {
+        return NULL_POINTER;
+    }
+    if (treasure_id < 0) {
+        return INVALID_ARGUMENT;
+    }
+
+    for (i = 0; i < p->collected_count; i++) {
+        if (p->collected_treasures[i] != NULL &&
+            p->collected_treasures[i]->id == treasure_id) {
+
+            p->collected_treasures[i]->collected = false;
+
+            for (j = i; j < p->collected_count - 1; j++) {
+                p->collected_treasures[j] = p->collected_treasures[j + 1];
+            }
+
+            p->collected_count--;
+
+            if (p->collected_count == 0) {
+                free(p->collected_treasures);
+                p->collected_treasures = NULL;
+            }
+
+            return OK;
+        }
+    }
+
+    return ROOM_NOT_FOUND;
 }

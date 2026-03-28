@@ -7,6 +7,48 @@
 #include "player.h"
 #include "types.h"
 
+
+Status game_engine_get_total_treasure_count(const GameEngine *eng,
+                                            int *count_out);
+
+
+Status game_engine_use_portal(GameEngine *eng);
+
+
+Status game_engine_get_charset(const GameEngine *eng, Charset *charset_out);
+
+Status game_engine_reset_current_room(GameEngine *eng);
+
+
+typedef struct {
+    bool valid;
+
+    int prev_room_id;
+    int prev_x;
+    int prev_y;
+
+    bool collected_treasure;
+    int treasure_room_id;
+    int treasure_id;
+    int treasure_prev_x;
+    int treasure_prev_y;
+
+    bool moved_pushable;
+    int pushable_room_id;
+    int pushable_id;
+    int pushable_prev_x;
+    int pushable_prev_y;
+} LastMoveState;
+
+typedef struct {
+    GameEngine base;
+    LastMoveState undo;
+} GameEngineEx;
+
+
+
+
+
 //searches the graph for a room with a given id, returns pointer to room
 static const Room *get_room_by_id(const Graph *graph, int room_id) {
     //initalize temp room value
@@ -25,6 +67,39 @@ static Room *get_room_by_id_mut(Graph *graph, int room_id) {
     key_room.id = room_id;
     return (Room *)graph_get_payload(graph, &key_room);
 }
+
+static void clear_last_move(GameEngine *eng) {
+    GameEngineEx *eng_ex = (GameEngineEx *)eng;
+
+    eng_ex->undo.valid = false;
+    eng_ex->undo.collected_treasure = false;
+    eng_ex->undo.moved_pushable = false;
+}
+
+static Status begin_last_move(GameEngine *eng) {
+    GameEngineEx *eng_ex = (GameEngineEx *)eng;
+    int x = 0;
+    int y = 0;
+
+    if (eng == NULL || eng->player == NULL) {
+        return INTERNAL_ERROR;
+    }
+
+    clear_last_move(eng);
+
+    eng_ex->undo.prev_room_id = player_get_room(eng->player);
+
+    if (player_get_position(eng->player, &x, &y) != OK) {
+        return INTERNAL_ERROR;
+    }
+
+    eng_ex->undo.prev_x = x;
+    eng_ex->undo.prev_y = y;
+    eng_ex->undo.valid = true;
+
+    return OK;
+}
+
 
 //builds entire game state
 Status game_engine_create(const char *config_file_path, GameEngine **engine_out) {
@@ -75,13 +150,18 @@ Status game_engine_create(const char *config_file_path, GameEngine **engine_out)
     }
 
     //alloc the game engine
-    engine = (GameEngine *)malloc(sizeof(GameEngine));
+    GameEngineEx *engine_ex = NULL;
 
-    if (engine == NULL) {
+    engine_ex = (GameEngineEx *)malloc(sizeof(GameEngineEx));
+
+    if (engine_ex == NULL) {
         player_destroy(player);
         graph_destroy(graph);
         return NO_MEMORY;
     }
+
+    memset(engine_ex, 0, sizeof(GameEngineEx));
+    engine = &engine_ex->base;
 
     //populate game engine, game engine owns everything
     engine->graph = graph;
@@ -152,34 +232,57 @@ static Status move_into_floor(GameEngine *eng, int next_x, int next_y) {
 }
 
 static Status handle_pushable(GameEngine *eng, Room *room, int push_idx, Direction dir, int next_x, int next_y) {
+    GameEngineEx *eng_ex = (GameEngineEx *)eng;
+    int old_x = room->pushables[push_idx].x;
+    int old_y = room->pushables[push_idx].y;
     Status st = room_try_push(room, push_idx, dir);
-    if (st == OK){
+
+    if (st == OK) {
+        eng_ex->undo.moved_pushable = true;
+        eng_ex->undo.pushable_room_id = room_get_id(room);
+        eng_ex->undo.pushable_id = room->pushables[push_idx].id;
+        eng_ex->undo.pushable_prev_x = old_x;
+        eng_ex->undo.pushable_prev_y = old_y;
         return move_into_floor(eng, next_x, next_y);
-    } 
-    if (st == ROOM_IMPASSABLE){
+    }
+
+    if (st == ROOM_IMPASSABLE) {
         return ROOM_IMPASSABLE;
     }
-    return ROOM_IMPASSABLE; 
+    return ROOM_IMPASSABLE;
 }
 
 static Status handle_treasure(GameEngine *eng, Room *room, int treasure_id, int next_x, int next_y) {
     Treasure *t = NULL;
     Status st = room_pick_up_treasure(room, treasure_id, &t);
 
-    (void)next_x;
-    (void)next_y;
+    if (st == OK) {
+        st = player_try_collect(eng->player, t);
 
-    if (st != OK) {
-        return ROOM_IMPASSABLE;
+        if (st != OK) {
+            if (st == INVALID_ARGUMENT) {
+                return move_into_floor(eng, next_x, next_y);
+            }
+            return ROOM_IMPASSABLE; 
+        }
+
+        GameEngineEx *eng_ex = (GameEngineEx *)eng;
+        eng_ex->undo.collected_treasure = true;
+        eng_ex->undo.treasure_room_id = room_get_id(room);
+        eng_ex->undo.treasure_id = treasure_id;
+        eng_ex->undo.treasure_prev_x = next_x;
+        eng_ex->undo.treasure_prev_y = next_y;
+        
+        return move_into_floor(eng, next_x, next_y);
     }
 
-    st = player_try_collect(eng->player, t);
-    if (st != OK) {
-        return ROOM_IMPASSABLE;
+    if (st == INVALID_ARGUMENT || st == ROOM_NOT_FOUND) {
+        return move_into_floor(eng, next_x, next_y);
     }
 
-    return OK;
+    return ROOM_IMPASSABLE;
 }
+
 
 static Status handle_portal(GameEngine *eng, int dest_room_id) {
     const Room *dest = get_room_by_id(eng->graph, dest_room_id);
@@ -233,6 +336,10 @@ Status game_engine_move_player(GameEngine *eng, Direction dir) {
         return INTERNAL_ERROR;
     }
 
+    if (begin_last_move(eng) != OK) {
+        return INTERNAL_ERROR;
+    }
+
     step_from_dir(dir, &dx, &dy);
     int nx = x + dx;
     int ny = y + dy;
@@ -245,14 +352,11 @@ Status game_engine_move_player(GameEngine *eng, Direction dir) {
     if (tt == ROOM_TILE_PUSHABLE) {
         return handle_pushable(eng, room, out_id, dir, nx, ny);
     }
-
-
     if (tt == ROOM_TILE_TREASURE) {
         return handle_treasure(eng, room, out_id, nx, ny);
     }
-
-    if (tt == ROOM_TILE_PORTAL && out_id >= 0) {
-        return handle_portal(eng, out_id);
+    if (tt == ROOM_TILE_PORTAL) {
+        return move_into_floor(eng, nx, ny);
     }
 
     return move_into_floor(eng, nx, ny);
@@ -521,4 +625,210 @@ Status game_engine_get_room_ids(const GameEngine *eng, int **ids_out, int *count
 // ****************** new to A2 ******************
 void game_engine_free_string(void *ptr){
     free(ptr);
+}
+
+
+//added for A3 
+
+Status game_engine_get_total_treasure_count(const GameEngine *eng,
+                                            int *count_out)
+{
+    const void * const *payloads = NULL;
+    int room_total = 0;
+    int i = 0;
+    int total = 0;
+    GraphStatus gstatus;
+
+    if (eng == NULL) {
+        return INVALID_ARGUMENT;
+    }
+
+    if (count_out == NULL) {
+        return NULL_POINTER;
+    }
+
+    if (eng->graph == NULL) {
+        return INTERNAL_ERROR;
+    }
+
+    gstatus = graph_get_all_payloads(eng->graph, &payloads, &room_total);
+    if (gstatus != GRAPH_STATUS_OK) {
+        if (gstatus == GRAPH_STATUS_NULL_ARGUMENT) {
+            return NULL_POINTER;
+        }
+        return INTERNAL_ERROR;
+    }
+
+    for (i = 0; i < room_total; i++) {
+        const Room *room = (const Room *)payloads[i];
+
+        if (room == NULL) {
+            return INTERNAL_ERROR;
+        }
+
+        total += room->treasure_count;
+    }
+
+    *count_out = total;
+    return OK;
+}
+
+Status game_engine_use_portal(GameEngine *eng) {
+    int x = 0;
+    int y = 0;
+    int room_id = -1;
+    int out_id = -1;
+    Room *room = NULL;
+    RoomTileType tt;
+
+    if (eng == NULL) {
+        return INVALID_ARGUMENT;
+    }
+    if (eng->graph == NULL || eng->player == NULL) {
+        return INTERNAL_ERROR;
+    }
+
+    room_id = player_get_room(eng->player);
+    room = get_room_by_id_mut(eng->graph, room_id);
+    if (room == NULL) {
+        return GE_NO_SUCH_ROOM;
+    }
+
+    if (player_get_position(eng->player, &x, &y) != OK) {
+        return INTERNAL_ERROR;
+    }
+
+    tt = room_classify_tile(room, x, y, &out_id);
+
+    if (tt != ROOM_TILE_PORTAL || out_id < 0) {
+        return ROOM_NO_PORTAL;
+    }
+
+    if (begin_last_move(eng) != OK) {
+        return INTERNAL_ERROR;
+    }
+
+    return handle_portal(eng, out_id);
+}
+
+
+Status game_engine_get_charset(const GameEngine *eng, Charset *charset_out) {
+    if (eng == NULL) {
+        return INVALID_ARGUMENT;
+    }
+    if (charset_out == NULL) {
+        return NULL_POINTER;
+    }
+
+    *charset_out = eng->charset;
+    return OK;
+}
+
+Status game_engine_reset_current_room(GameEngine *eng) {
+    int room_id = -1;
+    Room *room = NULL;
+    int start_x = 0;
+    int start_y = 0;
+    Status st;
+
+    if (eng == NULL) {
+        return INVALID_ARGUMENT;
+    }
+    if (eng->graph == NULL || eng->player == NULL) {
+        return INTERNAL_ERROR;
+    }
+
+    room_id = player_get_room(eng->player);
+    room = get_room_by_id_mut(eng->graph, room_id);
+    if (room == NULL) {
+        return GE_NO_SUCH_ROOM;
+    }
+
+    st = room_reset_current_state(room);
+    if (st != OK) {
+        return st;
+    }
+
+    st = player_remove_collected_in_room(eng->player, room_id);
+    if (st != OK) {
+        return st;
+    }
+
+    st = room_get_start_position(room, &start_x, &start_y);
+    if (st != OK) {
+        return st;
+    }
+
+    st = player_set_position(eng->player, start_x, start_y);
+    if (st != OK) {
+        return st;
+    }
+
+    return OK;
+}
+
+Status game_engine_undo_last_move(GameEngine *eng) {
+    GameEngineEx *eng_ex = (GameEngineEx *)eng;
+    Room *room = NULL;
+    int i = 0;
+    Status st;
+
+    if (eng == NULL) {
+        return INVALID_ARGUMENT;
+    }
+    if (eng->graph == NULL || eng->player == NULL) {
+        return INTERNAL_ERROR;
+    }
+    if (!eng_ex->undo.valid) {
+        return INVALID_ARGUMENT;
+    }
+
+    if (eng_ex->undo.moved_pushable) {
+        room = get_room_by_id_mut(eng->graph, eng_ex->undo.pushable_room_id);
+        if (room == NULL) {
+            return GE_NO_SUCH_ROOM;
+        }
+
+        for (i = 0; i < room->pushable_count; i++) {
+            if (room->pushables[i].id == eng_ex->undo.pushable_id) {
+                room->pushables[i].x = eng_ex->undo.pushable_prev_x;
+                room->pushables[i].y = eng_ex->undo.pushable_prev_y;
+                break;
+            }
+        }
+    }
+
+    if (eng_ex->undo.collected_treasure) {
+        room = get_room_by_id_mut(eng->graph, eng_ex->undo.treasure_room_id);
+        if (room == NULL) {
+            return GE_NO_SUCH_ROOM;
+        }
+
+        for (i = 0; i < room->treasure_count; i++) {
+            if (room->treasures[i].id == eng_ex->undo.treasure_id) {
+                room->treasures[i].collected = false;
+                room->treasures[i].x = eng_ex->undo.treasure_prev_x;
+                room->treasures[i].y = eng_ex->undo.treasure_prev_y;
+                break;
+            }
+        }
+
+        st = player_uncollect_treasure(eng->player, eng_ex->undo.treasure_id);
+        if (st != OK && st != ROOM_NOT_FOUND) {
+            return st;
+        }
+    }
+
+    st = player_move_to_room(eng->player, eng_ex->undo.prev_room_id);
+    if (st != OK) {
+        return INTERNAL_ERROR;
+    }
+
+    st = player_set_position(eng->player, eng_ex->undo.prev_x, eng_ex->undo.prev_y);
+    if (st != OK) {
+        return INTERNAL_ERROR;
+    }
+
+    clear_last_move(eng);
+    return OK;
 }

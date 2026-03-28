@@ -67,6 +67,18 @@ class Treasure(ctypes.Structure):
     ]
 
 
+class Charset(ctypes.Structure):
+    _fields_ = [
+        ("wall", ctypes.c_char),
+        ("floor", ctypes.c_char),
+        ("player", ctypes.c_char),
+        ("pushable", ctypes.c_char),
+        ("treasure", ctypes.c_char),
+        ("portal", ctypes.c_char),
+        ("switch_off", ctypes.c_char),
+        ("switch_on", ctypes.c_char),
+    ]
+
 # ============================================================
 # Library Loading
 # ============================================================
@@ -184,6 +196,30 @@ lib.game_engine_reset.argtypes = [GameEngine]
 lib.game_engine_reset.restype = ctypes.c_int
 
 
+# added for A3
+
+lib.game_engine_get_total_treasure_count.argtypes = [
+    ctypes.c_void_p,
+    ctypes.POINTER(ctypes.c_int)
+]
+lib.game_engine_get_total_treasure_count.restype = ctypes.c_int
+
+lib.game_engine_use_portal.argtypes = [ctypes.c_void_p]
+lib.game_engine_use_portal.restype = ctypes.c_int
+
+
+lib.game_engine_get_charset.argtypes = [
+    ctypes.c_void_p,
+    ctypes.POINTER(Charset)
+]
+lib.game_engine_get_charset.restype = ctypes.c_int
+
+lib.game_engine_reset_current_room.argtypes = [ctypes.c_void_p]
+lib.game_engine_reset_current_room.restype = ctypes.c_int
+
+lib.game_engine_undo_last_move.argtypes = [ctypes.c_void_p]
+lib.game_engine_undo_last_move.restype = ctypes.c_int
+
 
 # ============================================================
 # C Function Signatures - Player
@@ -245,3 +281,4 @@ lib.game_engine_free_string.restype = None
 # void destroy_treasure(Treasure *t);
 lib.destroy_treasure.argtypes = [ctypes.POINTER(Treasure)]
 lib.destroy_treasure.restype = None
+
