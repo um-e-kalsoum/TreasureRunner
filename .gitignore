@@ -55,3 +55,11 @@ env/
 # Temporary files
 *.bak
 *.orig
+
+# Python test and coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Personal game profile
+assets/player_profile.json
