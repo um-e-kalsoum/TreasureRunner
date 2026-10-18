@@ -55,6 +55,5 @@ The C layer handles rooms, movement, treasures, portals, graphs, rendering, and 
 
 ## Author
 
-Developed by Um-e-kalsoum Asif for CIS*2750.
 
    
